@@ -1,12 +1,14 @@
 package mx.com.anzen.anzenops.view;
 
+import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.awt.Label;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
-import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -23,8 +25,9 @@ import com.google.api.services.drive.model.File;
 import mx.com.anzen.anzenops.control.APIGoogleDrive;
 
 public class ExploradorGD extends JPanel implements TreeSelectionListener {
-	
-	private JEditorPane htmlPane;
+
+	private static final long serialVersionUID = -8951676851450604091L;
+	private JPanel panelDetalles;
 	private JTree tree;
 	private URL helpURL;
 	private static boolean DEBUG = false;
@@ -34,15 +37,11 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 	private static boolean playWithLineStyle = false;
 	private static String lineStyle = "Horizontal";
 
-	// Optionally set the look and feel.
-	private static boolean useSystemLookAndFeel = false;
-
 	public ExploradorGD() {
 		super(new GridLayout(1, 0));
 
 		// Create the nodes.
-		DefaultMutableTreeNode top = new DefaultMutableTreeNode("Archivos en el Drive");
-		createNodes(top);
+		DefaultMutableTreeNode top = new DefaultMutableTreeNode("Archivos en el Drive Anzen");
 
 		// Create a tree that allows one selection at a time.
 		tree = new JTree(top);
@@ -60,116 +59,105 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 		JScrollPane treeView = new JScrollPane(tree);
 
 		// Create the HTML viewing pane.
-		htmlPane = new JEditorPane();
-		htmlPane.setEditable(false);
-		initHelp();
-		JScrollPane htmlView = new JScrollPane(htmlPane);
+		panelDetalles = new JPanel(new BorderLayout(3, 3));
+		JScrollPane panelVista = new JScrollPane(panelDetalles);
 
 		// Add the scroll panes to a split pane.
 		JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		splitPane.setTopComponent(treeView);
-		splitPane.setBottomComponent(htmlView);
+		splitPane.setBottomComponent(panelVista);
 
 		Dimension minimumSize = new Dimension(100, 50);
-		htmlView.setMinimumSize(minimumSize);
+		panelVista.setMinimumSize(minimumSize);
 		treeView.setMinimumSize(minimumSize);
 		splitPane.setDividerLocation(100);
 		splitPane.setPreferredSize(new Dimension(500, 300));
 
 		// Add the split pane to this panel.
 		add(splitPane);
+
+		inicializaNodoRaiz(top);
 	}
 
-	/** Required by TreeSelectionListener interface. */
+	/**
+	 * Inicializa la vista
+	 * 
+	 * @param top
+	 */
+	private void inicializaNodoRaiz(DefaultMutableTreeNode top) {
+		List<DefaultMutableTreeNode> lstNodosNivelAnterior = new ArrayList<>();
+		List<DefaultMutableTreeNode> lstNodosNivelNuevo = null;
+		lstNodosNivelAnterior.add(top);
+		int contadorNivel = 0;
+
+		// Generando Arbol
+		try {
+
+			do {
+				lstNodosNivelNuevo = new ArrayList<>();
+
+				for (DefaultMutableTreeNode nodoAnterior : lstNodosNivelAnterior) {
+					top = nodoAnterior;
+
+					List<File> lstCarpetas = null;
+					if (contadorNivel == 0) {
+						lstCarpetas = APIGoogleDrive.consultaCarpetas(null);
+					} else {
+						File carpeta = (File) nodoAnterior.getUserObject();
+						lstCarpetas = APIGoogleDrive.consultaCarpetas(carpeta.getId());
+					}
+
+					if (lstCarpetas != null && lstCarpetas.size() != 0) {
+						// Agregando nuevos nodos al nivel
+						for (File carpeta : lstCarpetas) {
+							DefaultMutableTreeNode nodo = new DefaultMutableTreeNode(carpeta);
+							lstNodosNivelNuevo.add(nodo);
+							top.add(nodo);
+						}
+					}
+				}
+
+				lstNodosNivelAnterior = lstNodosNivelNuevo;
+				contadorNivel++;
+			} while (lstNodosNivelNuevo != null && lstNodosNivelNuevo.size() != 0);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Implementacion de listener
+	 */
+	@Override
 	public void valueChanged(TreeSelectionEvent e) {
 		DefaultMutableTreeNode node = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
 
-		if (node == null)
-			return;
+		if (node == null){
+		    return;
+		}
 
-		Object nodeInfo = node.getUserObject();
-		if (node.isLeaf()) {
-			BookInfo book = (BookInfo) nodeInfo;
-			displayURL(book.bookURL);
-			if (DEBUG) {
-				System.out.print(book.bookURL + ":  \n    ");
+		List<File> archivos = null;
+		if (node.getUserObject() instanceof File) {
+			File folder = (File)node.getUserObject();
+			try {
+				archivos = APIGoogleDrive.consultaArchivos(folder.getId());
+			} catch (IOException e1) {
+				e1.printStackTrace();
 			}
 		} else {
-			displayURL(helpURL);
-		}
-		if (DEBUG) {
-			System.out.println(nodeInfo.toString());
-		}
-	}
-
-	private class BookInfo {
-		public String bookName;
-		public URL bookURL;
-
-		public BookInfo(String book, String filename) {
-			bookName = book;
-			bookURL = getClass().getResource(filename);
-			if (bookURL == null) {
-				System.err.println("Couldn't find file: " + filename);
+			try {
+				archivos = APIGoogleDrive.consultaArchivos(null);
+			} catch (IOException e1) {
+				e1.printStackTrace();
 			}
 		}
 
-		public String toString() {
-			return bookName;
-		}
-	}
-
-	private void initHelp() {
-		String s = "TreeDemoHelp.html";
-		helpURL = getClass().getResource(s);
-		if (helpURL == null) {
-			System.err.println("Couldn't open help file: " + s);
-		} else if (DEBUG) {
-			System.out.println("Help URL is " + helpURL);
-		}
-
-		displayURL(helpURL);
-	}
-
-	private void displayURL(URL url) {
-		try {
-			if (url != null) {
-				htmlPane.setPage(url);
-			} else { // null url
-				htmlPane.setText("File Not Found");
-				if (DEBUG) {
-					System.out.println("Attempted to display a null URL.");
-				}
+		if(archivos != null && archivos.size()<0){
+			for (File file : archivos) {
+				panelDetalles.add(new Label(file.toString()));
 			}
-		} catch (IOException e) {
-			System.err.println("Attempted to read a bad URL: " + url);
 		}
-	}
-
-	private void createNodes(DefaultMutableTreeNode top) {
-		
-		try {
-			List<File> lstArchivos = APIGoogleDrive.consultaArchivos(null);
-		
-		
-	        if (lstArchivos == null || lstArchivos.size() == 0) {
-	            System.out.println("No existen archivos");
-	        } else {
-	            System.out.println("Archivos:");
-	            for (File file : lstArchivos) {
-	            	
-	            	//Validando si es una carpeta
-	            	if(file.getMimeType().contains("folder")){	            		
-	            		DefaultMutableTreeNode archivo = new DefaultMutableTreeNode(file.getName());	            		
-	            		top.add(archivo);
-	            	}
-	            }
-	        }
-		
-		} catch (IOException e1) {
-			e1.printStackTrace();
-		}
-		
 	}
 
 	/**
@@ -177,14 +165,6 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 	 * invoked from the event dispatch thread.
 	 */
 	private static void createAndShowGUI() {
-		
-		if (useSystemLookAndFeel) {
-			try {
-				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-			} catch (Exception e) {
-				System.err.println("No se puede mostrar el look and  feel");
-			}
-		}
 
 		// Create and set up the window.
 		JFrame frame = new JFrame("Consulta Archivos Google Drive Anzen");
@@ -200,15 +180,16 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 
 	/**
 	 * Inicializando la app
+	 * 
 	 * @param args
 	 */
 	public static void main(String[] args) {
-        //Schedule a job for the event dispatch thread:
-        //creating and showing this application's GUI.
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                createAndShowGUI();                
-            }
-        });
-    }
+		// Schedule a job for the event dispatch thread:
+		// creating and showing this application's GUI.
+		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				createAndShowGUI();
+			}
+		});
+	}
 }

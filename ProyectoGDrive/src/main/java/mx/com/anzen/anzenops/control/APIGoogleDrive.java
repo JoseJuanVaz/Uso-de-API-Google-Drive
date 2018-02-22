@@ -1,6 +1,13 @@
 package mx.com.anzen.anzenops.control;
 
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -8,19 +15,13 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
-
-import com.google.api.services.drive.DriveScopes;
-import com.google.api.services.drive.model.*;
 import com.google.api.services.drive.Drive;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.List;
+import com.google.api.services.drive.DriveScopes;
+import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.FileList;
 
 public class APIGoogleDrive {
     /** Application name. */
@@ -88,35 +89,92 @@ public class APIGoogleDrive {
     }
 
     /**
-     * Metodo que consulta archivos desde el menu raiz
-     * @return
+     * Metodo que solo consulta carpetas
+     * @param idFolder - Identificador de la carpeta que se quiere consultar, si viene nulo se consulta la carpeta raiz
+     * @return List<File>, lista de carpetas
+     * @throws IOException
+     */
+    public static List<File> consultaCarpetas(String idFolder) throws IOException {
+    	StringBuilder q = new StringBuilder();
+    	q.append("mimeType = 'application/vnd.google-apps.folder' ");
+    	
+    	if(idFolder == null){
+    		q.append("and 'root' in parents");
+    	}else{
+    		q.append("and '").append(idFolder).append("' in parents");
+    	}
+    	
+    	return consultaDrive(q);
+    }
+    
+    /**
+     * Metodo que consulta los archivos de un Folder especifico
+     * @param idFolder - Identificador de folder, si es nulo busca desde la carpeta raiz
+     * @return List<File> con los archivos encontrados del identificador
      * @throws IOException
      */
     public static List<File> consultaArchivos(String idFolder) throws IOException {
+    	StringBuilder q = new StringBuilder();
+    	q.append("mimeType != 'application/vnd.google-apps.folder' ");
+    	
+    	if(idFolder == null){
+    		q.append("and 'root' in parents");
+    	}else{
+    		q.append("and '").append(idFolder).append("' in parents");
+    	}
+    	
+    	return consultaDrive(q);
+    }
+
+    
+    /**
+     * Metodo que consulta los archivos de un Folder especifico
+     * @param idFolder - Identificador de folder, si es nulo busca desde la carpeta raiz
+     * @return List<File> con los archivos encontrados del identificador
+     * @throws IOException
+     */
+    private static List<File> consultaDrive(StringBuilder q) throws IOException {
     	// Build a new authorized API client service.
         Drive service = getDriveService();
 
-        // Print the names and IDs for up to 10 files.
-        //FileList result = service.files().list().setFields("nextPageToken, files(id, name)").execute();
+        List<File> resultadoConsulta = null;
+        String pageToken = null;
         
-        //La consulta es del menu raiz 
-//        if(idFolder == null){
-//        	
-//        }
+        do {
+	        FileList result = service.files().list()
+	        		.setFields("nextPageToken, files(id, name, mimeType, parents)")
+	        		.setQ(q.toString())
+	        		.setPageToken(pageToken)
+	        		.execute();
+        	
+	        List<File> files = result.getFiles();
+	        
+	        if (files == null || files.size() == 0) {
+	            System.out.println("No se encontraron resultados de la busqueda");
+	            files = null;
+	        } else {
+	        	if(resultadoConsulta == null){
+	        		resultadoConsulta = new ArrayList<>();
+	        	}
+	        	resultadoConsulta.addAll(files);
+	        	
+	            System.out.println("Archivos:");
+	            for (File file : files) {
+	                System.out.printf("%s (%s) (%s) \n", file.getName(), file.getId(), file.getMimeType());
+	                
+	                if(file.getParents() != null){
+	                	
+	                for(String par : file.getParents()){
+	                	System.out.println("  Parent: "+par);
+	                }
+	                }
+	            }
+	        }
+	        
+	        pageToken = result.getNextPageToken();
+    	}while (pageToken != null);
         
-        FileList result = service.files().list().execute();
-        List<File> files = result.getFiles();
-        if (files == null || files.size() == 0) {
-            System.out.println("No se encontro carpeta");
-            files = null;
-        } else {
-            System.out.println("Archivos:");
-            for (File file : files) {
-                System.out.printf("%s (%s) (%s)\n", file.getName(), file.getId(), file.getMimeType());
-            }
-        }
-        
-        return files;
+        return resultadoConsulta;
     }
-
+   
 }
