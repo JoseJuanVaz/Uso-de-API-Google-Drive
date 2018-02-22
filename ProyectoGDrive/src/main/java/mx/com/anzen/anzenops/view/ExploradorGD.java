@@ -1,20 +1,23 @@
 package mx.com.anzen.anzenops.view;
 
-import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
-import java.awt.Label;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTextField;
 import javax.swing.JTree;
-import javax.swing.UIManager;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -29,18 +32,16 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 	private static final long serialVersionUID = -8951676851450604091L;
 	private JPanel panelDetalles;
 	private JTree tree;
-	private URL helpURL;
-	private static boolean DEBUG = false;
-
-	// Optionally play with line styles. Possible values are
-	// "Angled" (the default), "Horizontal", and "None".
 	private static boolean playWithLineStyle = false;
 	private static String lineStyle = "Horizontal";
 
+	/**
+	 * Inicializamos componentes
+	 */
 	public ExploradorGD() {
 		super(new GridLayout(1, 0));
 
-		// Create the nodes.
+		// Inicializando el Arbol de Carpetas
 		DefaultMutableTreeNode top = new DefaultMutableTreeNode("Archivos en el Drive Anzen");
 
 		// Create a tree that allows one selection at a time.
@@ -58,8 +59,9 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 		// Create the scroll pane and add the tree to it.
 		JScrollPane treeView = new JScrollPane(tree);
 
-		// Create the HTML viewing pane.
-		panelDetalles = new JPanel(new BorderLayout(3, 3));
+		// Creando el panel para listar archivos.
+		panelDetalles = new JPanel();
+		panelDetalles.setLayout(new GridLayout(0, 1));
 		JScrollPane panelVista = new JScrollPane(panelDetalles);
 
 		// Add the scroll panes to a split pane.
@@ -133,13 +135,13 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 	public void valueChanged(TreeSelectionEvent e) {
 		DefaultMutableTreeNode node = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
 
-		if (node == null){
-		    return;
+		if (node == null) {
+			return;
 		}
 
 		List<File> archivos = null;
 		if (node.getUserObject() instanceof File) {
-			File folder = (File)node.getUserObject();
+			File folder = (File) node.getUserObject();
 			try {
 				archivos = APIGoogleDrive.consultaArchivos(folder.getId());
 			} catch (IOException e1) {
@@ -153,11 +155,18 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 			}
 		}
 
-		if(archivos != null && archivos.size()<0){
+		panelDetalles.removeAll();
+		// Agregando los archivos encontrados
+		if (archivos != null && archivos.size() > 0) {
+
 			for (File file : archivos) {
-				panelDetalles.add(new Label(file.toString()));
+				JTextField nombre = new JTextField(file.toString());
+				panelDetalles.add(nombre);
 			}
 		}
+
+		// renderiza el panel
+		panelDetalles.validate();
 	}
 
 	/**
@@ -167,13 +176,92 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 	private static void createAndShowGUI() {
 
 		// Create and set up the window.
-		JFrame frame = new JFrame("Consulta Archivos Google Drive Anzen");
+		final JFrame frame = new JFrame("Consulta Archivos Google Drive Anzen");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		// Add content to the window.
 		frame.add(new ExploradorGD());
 
-		// Display the window.
+		// Agregando el Menu
+		JMenuBar menuBar;
+		JMenu menu;
+
+		// Create the menu bar.
+		menuBar = new JMenuBar();
+
+		// Build the first menu.
+		menu = new JMenu("Casos de Uso");
+		menuBar.add(menu);
+		frame.setJMenuBar(menuBar);
+
+		JMenuItem menuItem = new JMenuItem("Cargar un archivo a una carpeta en especifico");
+		menu.add(menuItem);
+		menuItem.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// Necesitamos el Id de la carpeta
+			}
+		});
+
+		JMenuItem menuItem1 = new JMenuItem("Crear carpeta con el nombre de cada PO o con el RFC del empleado.");
+		menu.add(menuItem1);
+		menuItem1.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// Necesitamos el id de la carpeta donde va a crearse
+				String respuesta = JOptionPane.showInputDialog(frame,
+						"Escribe el id de la carpeta donde se va a crear");
+
+				if (respuesta != null) {
+					try {
+						APIGoogleDrive.crearCarpeta(respuesta, "CarpetaCreadaJ");
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
+
+		JMenuItem menuItem2 = new JMenuItem(
+				"Realizar la descarga de un archivo que esta dentro de una carpeta en especifico");
+		menu.add(menuItem2);
+		menuItem2.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// Agregar Identificador del archivo
+				String respuesta = JOptionPane.showInputDialog(frame,
+						"Escribe el id del archivo a descargar");
+
+				if (respuesta != null) {
+					try {
+						System.out.println("Realizando la descarga del ID: "+respuesta);
+						APIGoogleDrive.descargarArchivo(respuesta);
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
+
+		JMenuItem menuItem3 = new JMenuItem("Realizar la descarga .zip de una carpeta completa");
+		menu.add(menuItem3);
+		menuItem3.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// Agregar el id de la carpeta que se requiere desacargar
+				String respuesta = JOptionPane.showInputDialog(frame,
+						"Escribe el id de la carpeta a descargar");
+
+				if (respuesta != null) {
+
+				}
+			}
+		});
+
 		frame.pack();
 		frame.setVisible(true);
 	}

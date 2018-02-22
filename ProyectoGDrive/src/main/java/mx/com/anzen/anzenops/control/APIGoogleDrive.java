@@ -1,11 +1,14 @@
 package mx.com.anzen.anzenops.control;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import com.google.api.client.auth.oauth2.Credential;
@@ -14,6 +17,7 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.FileContent;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
@@ -44,7 +48,7 @@ public class APIGoogleDrive {
      * If modifying these scopes, delete your previously saved credentials
      * at ~/.credentials/drive-java-quickstart
      */
-    private static final List<String> SCOPES = Arrays.asList(DriveScopes.DRIVE_METADATA_READONLY);
+    private static final List<String> SCOPES = Arrays.asList(DriveScopes.DRIVE);
 
     static {
         try {
@@ -176,5 +180,57 @@ public class APIGoogleDrive {
         
         return resultadoConsulta;
     }
+    
+    /**
+     * Metodo para subir archivos
+     * @param idFolder - Identificador del folder donde se almacenara el archivo
+     * @throws IOException 
+     */
+    public static void subirArchivo(String idFolder) throws IOException{
+    	Drive service = getDriveService();
+    	
+    	File fileMetadata = new File();
+    	fileMetadata.setName("photo.jpg");
+    	fileMetadata.setParents(Collections.singletonList(idFolder));
+    	java.io.File filePath = new java.io.File("files/photo.jpg");
+    	FileContent mediaContent = new FileContent("image/jpeg", filePath);
+    	File file = service.files().create(fileMetadata, mediaContent)
+    	    .setFields("id, parents")
+    	    .execute();
+    	System.out.println("File ID: " + file.getId());
+    }
+    
+    /**
+     * Metodo para crear una carpeta
+     * @param idFolder
+     * @param nombreFolder
+     * @throws IOException
+     */
+    public static String crearCarpeta(String idFolder, String nombreFolder) throws IOException{
+    	Drive service = getDriveService();
+    	
+    	File fileMetadata = new File();
+    	fileMetadata.setName(nombreFolder);
+    	fileMetadata.setMimeType("application/vnd.google-apps.folder");
+
+    	File file = service.files().create(fileMetadata)
+    	    .setFields("id")
+    	    .execute();
+    	System.out.println("Folder ID: " + file.getId());
+    	
+    	return file.getId();
+    }
    
+    /**
+     * Metodo que descarga un archivo
+     * @param idArchivo - Identificador del archivo
+     * @throws IOException 
+     */
+    public static void descargarArchivo(String idArchivo) throws IOException{
+    	Drive service = getDriveService();
+    	
+    	OutputStream outputStream = new ByteArrayOutputStream();
+    	service.files().get(idArchivo)
+    	    .executeMediaAndDownloadTo(outputStream);
+    }
 }
