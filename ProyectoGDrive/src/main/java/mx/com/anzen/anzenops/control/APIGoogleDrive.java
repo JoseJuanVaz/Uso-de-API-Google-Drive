@@ -2,6 +2,7 @@ package mx.com.anzen.anzenops.control;
 
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -189,13 +190,14 @@ public class APIGoogleDrive {
     public static void subirArchivo(String idFolder) throws IOException{
     	Drive service = getDriveService();
     	
+    	//Archivo pequeño
     	File fileMetadata = new File();
-    	fileMetadata.setName("photo.jpg");
+    	fileMetadata.setName("Receta.jpg");
     	fileMetadata.setParents(Collections.singletonList(idFolder));
-    	java.io.File filePath = new java.io.File("files/photo.jpg");
+    	java.io.File filePath = new java.io.File("C:/Users/Jose Juan Vazquez/Pictures/Saved Pictures/Receta.jpg");
     	FileContent mediaContent = new FileContent("image/jpeg", filePath);
     	File file = service.files().create(fileMetadata, mediaContent)
-    	    .setFields("id, parents")
+    	    .setFields("id")
     	    .execute();
     	System.out.println("File ID: " + file.getId());
     }
@@ -229,8 +231,17 @@ public class APIGoogleDrive {
     public static void descargarArchivo(String idArchivo) throws IOException{
     	Drive service = getDriveService();
     	
-    	OutputStream outputStream = new ByteArrayOutputStream();
-    	service.files().get(idArchivo)
-    	    .executeMediaAndDownloadTo(outputStream);
+    	//ByteArrayOutputStream es un array dinámico (en memoria)
+    	ByteArrayOutputStream outputStream = new ByteArrayOutputStream();    	
+    	service.files().get(idArchivo).executeMediaAndDownloadTo(outputStream);
+    	
+    	//Aqui ya tenemos el arreglo de Bites, ya podemos almacenarlo
+    	System.out.println(outputStream);
+    	
+    	FileOutputStream f= new FileOutputStream(DATA_STORE_DIR.getAbsolutePath()+"/ArchivoDescargado.jpg");//Asignar el nombre correcto 
+    	f.write(outputStream.toByteArray());
+    	f.close();
+    	
+    	System.out.println("Se descargo correctamente el archivo Id:"+idArchivo+" En "+DATA_STORE_DIR.getAbsolutePath());
     }
 }

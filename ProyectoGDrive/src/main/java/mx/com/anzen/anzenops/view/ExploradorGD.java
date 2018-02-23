@@ -201,6 +201,17 @@ public class ExploradorGD extends JPanel implements TreeSelectionListener {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// Necesitamos el Id de la carpeta
+				
+				String respuesta = JOptionPane.showInputDialog(frame,
+						"Escribe el id de la carpeta donde se va a subir el archivo");
+
+				if (respuesta != null) {
+					try {
+						APIGoogleDrive.subirArchivo(respuesta);
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+				}
 			}
 		});
 
